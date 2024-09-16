@@ -155,7 +155,7 @@ fn main() {
             simba1400: std::env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".into()),
               simba2000: std::env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".into()),
               legacy: std::env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".into()),
-              runelite: [local_app_data, "RuneLite", "RuneLite.exe"].iter().collect(),
+              runelite: [localappdata, "RuneLite", "RuneLite.exe"].iter().collect(),
               osclient: std::env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".into()),
           }));
           Ok(())
