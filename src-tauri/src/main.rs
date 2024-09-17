@@ -1,6 +1,8 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::env;
+use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Mutex;
 use tauri::webview::PageLoadEvent;
@@ -15,11 +17,11 @@ struct JagexLogin {
 
 #[derive(Default)]
 struct ExecutablePaths {
-    simba1400: String,
-    simba2000: String,
-    legacy: String,
-    runelite: String,
-    osclient: String,
+    simba1400: PathBuf,
+    simba2000: PathBuf,
+    legacy: PathBuf,
+    runelite: PathBuf,
+    osclient: PathBuf,
 }
 
 #[tauri::command]
@@ -99,11 +101,11 @@ fn get_state(jlogin: State<'_, Mutex<JagexLogin>>) -> Option<String> {
 fn set_executable_path(paths: State<'_, Mutex<ExecutablePaths>>, exe: String, path: String) {
     let mut paths = paths.lock().unwrap();
     match exe.as_str() {
-        "simba1400" => paths.simba1400 = path,
-        "simba2000" => paths.simba2000 = path,
-        "legacy"    => paths.legacy = path,
-        "runelite"  => paths.runelite = path,
-        "osclient"  => paths.osclient = path,
+        "simba1400" => paths.simba1400 = PathBuf::from(path),
+        "simba2000" => paths.simba2000 = PathBuf::from(path),
+        "legacy"    => paths.legacy = PathBuf::from(path),
+        "runelite"  => paths.runelite = PathBuf::from(path),
+        "osclient"  => paths.osclient = PathBuf::from(path),
         _ => {},
     }
 }
@@ -112,19 +114,19 @@ fn set_executable_path(paths: State<'_, Mutex<ExecutablePaths>>, exe: String, pa
 fn get_executable_path(paths: State<'_, Mutex<ExecutablePaths>>, exe: String) -> String {
     let paths = paths.lock().unwrap();
     match exe.as_str() {
-      "simba1400" => paths.simba1400.clone(),
-      "simba2000" => paths.simba2000.clone(),
-      "legacy"    => paths.legacy.clone(),
-      "runelite"  => paths.runelite.clone(),
-      "osclient"  => paths.osclient.clone(),
-      _ => paths.simba1400.clone(),
+      "simba1400" => paths.simba1400.to_str().unwrap().to_string(),
+      "simba2000" => paths.simba2000.to_str().unwrap().to_string(),
+      "legacy"    => paths.legacy.to_str().unwrap().to_string(),
+      "runelite"  => paths.runelite.to_str().unwrap().to_string(),
+      "osclient"  => paths.osclient.to_str().unwrap().to_string(),
+      _ => paths.simba1400.to_str().unwrap().to_string(),
   }
 }
 
 #[tauri::command]
 async fn run_executable(paths: State<'_, Mutex<ExecutablePaths>>, exe: String, args: Vec<String>) -> Result<String, String> {
   let paths = paths.lock().unwrap();
-  let path: String = match exe.as_str() {
+  let path: PathBuf = match exe.as_str() {
       "simba1400" => paths.simba1400.clone(),
       "simba2000" => paths.simba2000.clone(),
       "legacy"    => paths.legacy.clone(),
@@ -149,14 +151,20 @@ fn main() {
   tauri::Builder::default()
       .plugin(tauri_plugin_dialog::init())
       .setup(|app| {
-        let localappdata = std::env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".into());
+
+       let program_files_str = env::var("PROGRAMFILES(X86)").unwrap_or_else(|_| {
+            app.path().app_local_data_dir().expect("Local Data Dir doesn't exist on this system").to_string_lossy().into_owned()
+        });
+
+        let program_files: PathBuf = PathBuf::from(program_files_str);
+
         app.manage(Mutex::new(JagexLogin::default()));
         app.manage(Mutex::new(ExecutablePaths {
-            simba1400: std::env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".into()),
-              simba2000: std::env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".into()),
-              legacy: std::env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".into()),
-              runelite: [localappdata, "RuneLite", "RuneLite.exe"].iter().collect(),
-              osclient: std::env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".into()),
+            simba1400: app.path().app_local_data_dir()?.join(PathBuf::from("Simba/1400/Simba64.exe")),
+            simba2000: app.path().app_local_data_dir()?.join(PathBuf::from("Simba/2000/Simba64.exe")),
+            legacy: app.path().home_dir()?.join(PathBuf::from("jagexcache/jagexlauncher/bin/jagexappletviewer.jar")),
+            runelite: app.path().local_data_dir()?.join(PathBuf::from("RuneLite/RuneLite.exe")),
+            osclient: program_files.join(PathBuf::from("Jagex Launcher/Games/Old School RuneScape/Client/osclient.exe"))
           }));
           Ok(())
       })
